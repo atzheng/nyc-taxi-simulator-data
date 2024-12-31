@@ -33,20 +33,36 @@ nodes_df = pd.DataFrame.from_dict(
 
 speed = 9  # m / s
 for u, v, data in G.edges(data=True):
-    data["weight"] = float(data["length"])
+    data["weight"] = float(data["length"]) / speed
 
 n = len(G.nodes)
 distances = np.ones((n, n)) * np.inf
 
 for src, dests in tqdm(nx.shortest_path_length(G, weight="weight"), total=n):
     for dest, dist in dests.items():
-        distances[nodes_df.loc[src, "idx"], nodes_df.loc[dest, "idx"]] = (
-            dist / speed
-        )
+        distances[nodes_df.loc[src, "idx"], nodes_df.loc[dest, "idx"]] = dist
 
 # Remove unreachable nodes
-nodes_df["is_invalid"] = ((distances == np.inf).mean(axis=1) > 0.9) | (
+is_invalid = ((distances == np.inf).mean(axis=1) > 0.9) | (
     (distances == np.inf).mean(axis=0) > 0.9
+)
+
+# Redefine node indices to align with new distance matrix
+distances = distances[~is_invalid][:, ~is_invalid]
+nodes_df = nodes_df.sort_values("idx")
+nodes_df["is_invalid"] = is_invalid
+nodes_df = nodes_df[~is_invalid]
+nodes_df["idx"] = range(len(nodes_df))
+
+# Spot check that indexing is correct
+assert (
+    nx.shortest_path_length(
+        G,
+        source=nodes_df.iloc[34].osmid,
+        target=nodes_df.iloc[4132].osmid,
+        weight="weight",
+    )
+    == distances[34, 4132]
 )
 
 
@@ -72,7 +88,6 @@ nodes_gdf.crs = polygons_gdf.crs  # Ensure CRS match
 nodes_with_zones = gpd.sjoin(
     nodes_gdf, polygons_gdf, how="inner", predicate="within"
 ).set_index("LocationID")
-nodes_with_zones = nodes_with_zones[~nodes_with_zones["is_invalid"]]
 
 valid_zones = nodes_with_zones.index.unique()
 

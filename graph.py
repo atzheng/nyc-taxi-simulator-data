@@ -2,11 +2,11 @@ import numpy as np
 import networkx as nx
 from tqdm import tqdm, trange
 import pandas as pd
-from scipy.spatial import cKDTree
 import geopandas as gpd
 from shapely.geometry import Point
 
 tqdm.pandas()
+np.random.seed(0)
 
 # Graph taken from
 # https://www.kaggle.com/datasets/crailtap/street-network-of-new-york-in-graphml
@@ -36,15 +36,18 @@ for u, v, data in G.edges(data=True):
     data["weight"] = float(data["length"])
 
 n = len(G.nodes)
-distances = np.zeros((n, n))
+distances = np.ones((n, n)) * np.inf
 
-length = nx.single_source_bellman_ford_path_length
-
-for src in tqdm(G):
-    for dest, dist in length(G, src, weight="weight").items():
+for src, dests in tqdm(nx.shortest_path_length(G, weight="weight"), total=n):
+    for dest, dist in dests.items():
         distances[nodes_df.loc[src, "idx"], nodes_df.loc[dest, "idx"]] = (
             dist / speed
         )
+
+# Remove unreachable nodes
+nodes_df["is_invalid"] = ((distances == np.inf).mean(axis=1) > 0.9) | (
+    (distances == np.inf).mean(axis=0) > 0.9
+)
 
 
 # Convert taxi data to lat lngs
@@ -69,6 +72,7 @@ nodes_gdf.crs = polygons_gdf.crs  # Ensure CRS match
 nodes_with_zones = gpd.sjoin(
     nodes_gdf, polygons_gdf, how="inner", predicate="within"
 ).set_index("LocationID")
+nodes_with_zones = nodes_with_zones[~nodes_with_zones["is_invalid"]]
 
 valid_zones = nodes_with_zones.index.unique()
 

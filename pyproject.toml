@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "nyc-taxi-simulator-data"
+version = "0.1.0"
+description = ""
+authors = ["Andrew Zheng <azheng92@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+snakemake = "^8.26.0"
+numpy = "^2.2.1"
+networkx = "^3.4.2"
+pandas = "^2.2.3"
+tqdm = "^4.67.1"
+geopandas = "^1.0.1"
+shapely = "^2.0.6"
+kaggle = "^1.6.17"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
